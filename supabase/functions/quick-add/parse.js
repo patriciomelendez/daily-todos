@@ -49,13 +49,37 @@ export function parseItem(chrono, input, kind, tz, now = new Date()) {
   title = title.charAt(0).toUpperCase() + title.slice(1);
 
   return {
+    dateGiven: !!hit,
     title: title || input.trim(),
     type: kind === "event" ? "event" : "task",
     category: kind === "event" ? "" : kind,
     date,
     start_time: start,
-    duration: start ? (dur.minutes || (kind === "event" ? 60 : 30)) : null,
+    duration: dur.minutes || (kind === "event" ? 60 : 30),
     location,
-    remind: start ? 60 : 0,
+    remind: 60,
   };
+}
+
+// First free gap of `dur` minutes, searching from `fromDate` between 9am and 9pm.
+// busy: [{date, start:"HH:MM", duration}], now: {date:"YYYY-MM-DD", min: minutes since midnight}.
+export const DAY_START = 9 * 60, DAY_END = 21 * 60;
+export function findSlot(busy, fromDate, now, dur) {
+  for (let d = 0; d < 30; d++) {
+    const x = new Date(fromDate + "T12:00:00Z");
+    x.setUTCDate(x.getUTCDate() + d);
+    const date = x.toISOString().slice(0, 10);
+    if (date < now.date) continue;
+    let t = date === now.date ? Math.max(DAY_START, Math.ceil(now.min / 15) * 15) : DAY_START;
+    const taken = busy.filter((b) => b.date === date)
+      .map((b) => { const [h, m] = b.start.split(":").map(Number); const s = h * 60 + m; return [s, s + (b.duration || 30)]; })
+      .sort((a, b) => a[0] - b[0]);
+    for (const [s, e] of taken) {
+      if (e <= t) continue;
+      if (s >= t + dur) break;
+      t = e;
+    }
+    if (t + dur <= DAY_END) return { date, start: `${pad(Math.floor(t / 60))}:${pad(t % 60)}` };
+  }
+  return null;
 }
