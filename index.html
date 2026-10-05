@@ -17,7 +17,7 @@
 <style>
 :root{
   --bg:#EDF0F5; --panel:#FFFFFF; --ink:#18202E; --muted:#667085; --line:#DCE1EA; --soft:#F5F7FA;
-  --event:#2F5BFF; --event-bg:#E6ECFF; --evc:#0E9384; --evc-bg:#DDF5F1; --task:#C77700; --task-bg:#FFF1D9; --work:#7C3AED; --work-bg:#F1E9FF; --done:#1F8A5B; --now:#E5484D;
+  --event:#2F5BFF; --event-bg:#E6ECFF; --evc:#0E9384; --evc-bg:#DDF5F1; --task:#C77700; --task-bg:#FFF1D9; --work:#7C3AED; --work-bg:#F1E9FF; --shop:#C2185B; --shop-bg:#FCE4EF; --done:#1F8A5B; --now:#E5484D;
   --shadow:0 1px 2px rgba(24,32,46,.06),0 8px 24px rgba(24,32,46,.06);
   --slot:28px;
   box-sizing:border-box;
@@ -25,12 +25,12 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0F1522; --panel:#161E2E; --ink:#E8ECF4; --muted:#8B95A8; --line:#263045; --soft:#1B2436;
-  --event:#7C9BFF; --event-bg:#1E2A4F; --evc:#2DD4BF; --evc-bg:#0F302C; --task:#F2B048; --task-bg:#3A2C12; --work:#B794FF; --work-bg:#2E2148; --done:#4CC38A; --now:#FF6369;
+  --event:#7C9BFF; --event-bg:#1E2A4F; --evc:#2DD4BF; --evc-bg:#0F302C; --task:#F2B048; --task-bg:#3A2C12; --work:#B794FF; --work-bg:#2E2148; --shop:#F472B6; --shop-bg:#3B1A2C; --done:#4CC38A; --now:#FF6369;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
 }}
 :root[data-theme="dark"]{
   --bg:#0F1522; --panel:#161E2E; --ink:#E8ECF4; --muted:#8B95A8; --line:#263045; --soft:#1B2436;
-  --event:#7C9BFF; --event-bg:#1E2A4F; --evc:#2DD4BF; --evc-bg:#0F302C; --task:#F2B048; --task-bg:#3A2C12; --work:#B794FF; --work-bg:#2E2148; --done:#4CC38A; --now:#FF6369;
+  --event:#7C9BFF; --event-bg:#1E2A4F; --evc:#2DD4BF; --evc-bg:#0F302C; --task:#F2B048; --task-bg:#3A2C12; --work:#B794FF; --work-bg:#2E2148; --shop:#F472B6; --shop-bg:#3B1A2C; --done:#4CC38A; --now:#FF6369;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -122,18 +122,36 @@ button{cursor:pointer}
 .chip.work{background:var(--work-bg);border-left-color:var(--work)}
 .ev.work{border-left-color:var(--work);background:var(--work-bg)}
 .work .ck,.chip.work .ck{color:var(--work)}
-.tag.work{background:var(--work)}
+.tag.work,.tag.task.work{background:var(--work)}
 .ev.work.done,.chip.work.done{background:color-mix(in srgb,var(--done) 12%,var(--panel));border-left-color:var(--done)}
 .ev.work.late,.chip.work.late{border-left-color:var(--now)}
+.chip.shop{background:var(--shop-bg);border-left-color:var(--shop)}
+.ev.shop{border-left-color:var(--shop);background:var(--shop-bg)}
+.shop .ck,.chip.shop .ck{color:var(--shop)}
+.tag.shop,.tag.task.shop{background:var(--shop)}
+.ev.shop.done,.chip.shop.done{background:color-mix(in srgb,var(--done) 12%,var(--panel));border-left-color:var(--done)}
+.ev.shop.late,.chip.shop.late{border-left-color:var(--now)}
+.clb{display:inline-block;font-size:11px;font-weight:600;padding:0 6px;border-radius:8px;background:color-mix(in srgb,currentColor 14%,transparent);margin-left:6px;vertical-align:1px}
+.cl{display:grid;gap:2px}
+.clr{display:flex;align-items:center;gap:10px;padding:4px 0}
+.clr .check{flex:none}
+.clr span{flex:1;min-width:0}
+.clr.on span{text-decoration:line-through;color:var(--muted)}
+.clx{border:0;background:none;color:var(--muted);font-size:20px;line-height:1;padding:0 6px}
+.cladd{display:flex;gap:8px}
+.clin{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.clchip{border:1px solid var(--line);background:var(--soft);border-radius:14px;padding:4px 10px;font-size:13px}
+.clchip.on{text-decoration:line-through;color:var(--muted);background:none}
 .work.late .ck{color:var(--now)}
 .legend{display:flex;gap:12px;font-size:13px;color:var(--muted);align-items:center}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.legend .l-ev{background:var(--evc)}.legend .l-home{background:var(--task)}.legend .l-work{background:var(--work)}
-.catpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.legend .l-ev{background:var(--evc)}.legend .l-home{background:var(--task)}.legend .l-work{background:var(--work)}.legend .l-shop{background:var(--shop)}
+.catpick{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .catpick[hidden]{display:none}
 .catpick button{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:8px;font-weight:600;font-size:14px}
 .catpick button[aria-pressed="true"][data-cat="home"]{border-color:var(--task);background:var(--task-bg);color:var(--task)}
 .catpick button[aria-pressed="true"][data-cat="work"]{border-color:var(--work);background:var(--work-bg);color:var(--work)}
+.catpick button[aria-pressed="true"][data-cat="shopping"]{border-color:var(--shop);background:var(--shop-bg);color:var(--shop)}
 .chip .ct{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .chip .ck{width:15px;height:15px;margin:0}
 .chip .ck::after{width:4px;height:7px}
@@ -266,6 +284,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   .mcell .chip{font-size:0;padding:0;height:5px;width:70%;border:0;border-radius:3px;background:var(--task)}
   .mcell .chip.event{background:var(--evc)}
   .mcell .chip.work{background:var(--work)}
+  .mcell .chip.shop{background:var(--shop)}
   .legend{display:none}
   .mcell .chip .ck{display:none}
   .mcell .chip.done{background:var(--done)}
@@ -316,7 +335,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     <button class="btn icon" id="nextBtn" aria-label="Next">›</button>
     <h2 id="title"></h2>
     <span class="spacer"></span>
-    <span class="legend"><span><i class="l-ev"></i>Events</span><span><i class="l-home"></i>Home</span><span><i class="l-work"></i>Work</span></span>
+    <span class="legend"><span><i class="l-ev"></i>Events</span><span><i class="l-home"></i>Home</span><span><i class="l-work"></i>Work</span><span><i class="l-shop"></i>Shopping</span></span>
     <span class="status" id="status">Connecting…</span>
     <button class="btn primary" id="addBtn">+ Add</button>
   </div>
@@ -354,6 +373,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     <div class="catpick" id="catpick">
       <button type="button" data-cat="home">🏠 Home</button>
       <button type="button" data-cat="work">💼 Work</button>
+      <button type="button" data-cat="shopping">🛒 Shopping</button>
     </div>
     <div class="field"><label for="fTitle">What</label><input id="fTitle" required placeholder="e.g. Call with Jon" autocomplete="off"></div>
     <div class="three">
@@ -361,6 +381,8 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
       <div class="field"><label for="fStart">Start</label><select id="fStart"></select></div>
       <div class="field"><label for="fDur">Length</label><select id="fDur"></select></div>
     </div>
+    <div class="field"><label for="clNew">Checklist</label><div class="cl" id="clList"></div>
+      <div class="cladd"><input id="clNew" placeholder="Add items (comma separates)" autocomplete="off"><button type="button" class="btn" id="clAddBtn">Add</button></div></div>
     <div class="field"><label for="fLoc">Location</label><input id="fLoc" placeholder="Address, place or link" autocomplete="off"></div>
     <div class="two">
       <div class="field"><label for="fRemind">Remind me</label>
@@ -422,9 +444,9 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   const startDate = it => it.start ? new Date(parseYmd(it.date).getTime() + toMin(it.start)*60000) : null;
 
   const toRow = (id,d) => ({ id, title:d.title, type:d.type, category:d.category||"", date:d.date, start_time:d.start||null,
-    duration:d.duration??null, location:d.location||"", notes:d.notes||"", done:!!d.done, remind:d.remind??60, updated_at:new Date().toISOString() });
+    duration:d.duration??null, location:d.location||"", notes:d.notes||"", done:!!d.done, remind:d.remind??60, checklist:d.checklist||[], updated_at:new Date().toISOString() });
   const fromRow = r => ({ title:r.title, type:r.type, category:r.category||"", date:r.date, start:r.start_time?r.start_time.slice(0,5):null,
-    duration:r.duration, location:r.location||"", notes:r.notes||"", done:r.done, remind:r.remind, createdAt:Date.parse(r.created_at) });
+    duration:r.duration, location:r.location||"", notes:r.notes||"", done:r.done, remind:r.remind, checklist:r.checklist||[], createdAt:Date.parse(r.created_at) });
 
   async function saveItem(id, data){
     items[id] = {...data}; render();
@@ -569,10 +591,12 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   function evBlock({it,s,e,l,n}){
     const top=(s-START_H*60)/30, h=Math.max(1,(e-s)/30);
     const w=100/n;
-    return `<div class="ev ${it.type==="task"?(it.category==="work"?"task work":"task"):""} ${it.done?"done":""} ${isLate(it)?"late":""}" data-open="${it.id}" role="button" tabindex="0" style="top:calc(var(--slot)*${top} + 1px);height:calc(var(--slot)*${h} - 2px);left:calc(${w*l}% + 2px);width:calc(${w}% - 4px)">
-      <span class="ck" data-toggle="${it.id}" role="checkbox" aria-checked="${!!it.done}" aria-label="${it.done?"Mark not done":"Mark done"}" tabindex="0"></span><div class="evt"><b>${esc(it.title)}</b><span>${fmtTime(it.start)}${it.location?" · "+esc(it.location):""}</span></div></div>`;
+    return `<div class="ev ${it.type==="task"?"task "+catCls(it):""} ${it.done?"done":""} ${isLate(it)?"late":""}" data-open="${it.id}" role="button" tabindex="0" style="top:calc(var(--slot)*${top} + 1px);height:calc(var(--slot)*${h} - 2px);left:calc(${w*l}% + 2px);width:calc(${w}% - 4px)">
+      <span class="ck" data-toggle="${it.id}" role="checkbox" aria-checked="${!!it.done}" aria-label="${it.done?"Mark not done":"Mark done"}" tabindex="0"></span><div class="evt"><b>${esc(it.title)}${clBadge(it)}</b><span>${fmtTime(it.start)}${it.location?" · "+esc(it.location):""}</span></div></div>`;
   }
-  const chip = it => `<div class="chip ${it.type==="event"?"event":(it.category==="work"?"work":"")} ${it.done?"done":""} ${isLate(it)?"late":""}" data-open="${it.id}" role="button" tabindex="0" title="${esc(it.title)}"><span class="ck" data-toggle="${it.id}" role="checkbox" aria-checked="${!!it.done}" aria-label="${it.done?"Mark not done":"Mark done"}" tabindex="0"></span><span class="ct">${it.start?fmtTime(it.start)+" ":""}${esc(it.title)}</span></div>`;
+  const catCls = it => it.category==="work"?"work":it.category==="shopping"?"shop":"";
+  const clBadge = it => it.checklist?.length ? `<span class="clb">${it.checklist.filter(c=>c.done).length}/${it.checklist.length}</span>` : "";
+  const chip = it => `<div class="chip ${it.type==="event"?"event":catCls(it)} ${it.done?"done":""} ${isLate(it)?"late":""}" data-open="${it.id}" role="button" tabindex="0" title="${esc(it.title)}"><span class="ck" data-toggle="${it.id}" role="checkbox" aria-checked="${!!it.done}" aria-label="${it.done?"Mark not done":"Mark done"}" tabindex="0"></span><span class="ct">${it.start?fmtTime(it.start)+" ":""}${esc(it.title)}${clBadge(it)}</span></div>`;
   function isLate(it){
     if(it.done||it.type!=="task") return false;
     const today=ymd(new Date());
@@ -633,11 +657,12 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     return `<div class="row ${it.done?"done":""} ${isLate(it)?"late-row":""}">
       <button class="check ${it.done?"on":""} ${isLate(it)?"late":""}" data-toggle="${it.id}" aria-label="${it.done?"Mark not done":"Mark done"}">${it.done?"✓":""}</button>
       <span class="t">${it.start?`<span>${fmtTime(it.start)}</span>`+(it.duration?`<span>${fmtDur(it.duration)}</span>`:""):"Anytime"}</span>
-      <div class="ti" data-open="${it.id}"><b><span class="tag ${it.type} ${it.type==="task"&&it.category==="work"?"work":""}"></span>${esc(it.title)}</b>${it.notes?`<span>${esc(it.notes)}</span>`:""}</div>
+      <div class="ti" data-open="${it.id}"><b><span class="tag ${it.type} ${it.type==="task"?catCls(it):""}"></span>${esc(it.title)}${clBadge(it)}</b>${it.notes?`<span>${esc(it.notes)}</span>`:""}${it.checklist?.length?`<div class="clin">${it.checklist.map((c,i)=>`<button class="clchip ${c.done?"on":""}" data-clt="${it.id}" data-i="${i}">${c.done?"✓ ":""}${esc(c.text)}</button>`).join("")}</div>`:""}</div>
       ${it.location?`<a href="${esc(mapUrl(it.location))}" target="_blank" rel="noopener">📍 ${esc(it.location.length>28?it.location.slice(0,28)+"…":it.location)}</a>`:"<span></span>"}
     </div>`;
   }
   function bindOpen(el){
+    el.querySelectorAll("[data-clt]").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); toggleCl(b.dataset.clt,+b.dataset.i); }));
     el.querySelectorAll("[data-toggle]").forEach(b=>{
       const go=e=>{ e.stopPropagation(); e.preventDefault(); toggleDone(b.dataset.toggle); };
       b.addEventListener("click",go);
@@ -781,7 +806,27 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   fStart.innerHTML=`<option value="">Anytime</option>`+[...Array(96)].map((_,k)=>{const v=`${pad(Math.floor(k/4))}:${pad((k%4)*15)}`;return `<option value="${v}">${fmtTime(v)}</option>`;}).join("");
   fDur.innerHTML=[15,30,45,60,90,120,150,180,240,300,360,480].map(m=>`<option value="${m}">${fmtDur(m)}</option>`).join("");
   fStart.onchange=()=>{ fDur.disabled=!fStart.value; };
-  let formCat="home";
+  let formCat="home", formCl=[];
+  function toggleCl(id,i){
+    const it=items[id]; if(!it) return;
+    const checklist=(it.checklist||[]).map(c=>({...c})); checklist[i].done=!checklist[i].done;
+    saveItem(id,{...strip(it),checklist});
+  }
+  function renderCl(){
+    $("#clList").innerHTML=formCl.map((c,i)=>`<div class="clr ${c.done?"on":""}"><button type="button" class="check ${c.done?"on":""}" data-cli="${i}" aria-label="${c.done?"Uncheck":"Check"} ${esc(c.text)}">${c.done?"✓":""}</button><span>${esc(c.text)}</span><button type="button" class="clx" data-clx="${i}" aria-label="Remove ${esc(c.text)}">×</button></div>`).join("");
+    $("#clList").querySelectorAll("[data-cli]").forEach(b=>b.onclick=()=>{
+      const c=formCl[+b.dataset.cli]; c.done=!c.done; renderCl();
+      if(editingId && items[editingId]) saveItem(editingId,{...strip(items[editingId]),checklist:formCl.map(x=>({...x}))}); // check-offs save right away
+    });
+    $("#clList").querySelectorAll("[data-clx]").forEach(b=>b.onclick=()=>{ formCl.splice(+b.dataset.clx,1); renderCl(); });
+  }
+  function addCl(){
+    const inp=$("#clNew");
+    inp.value.split(",").map(t=>t.trim()).filter(Boolean).forEach(text=>formCl.push({text,done:false}));
+    inp.value=""; renderCl();
+  }
+  $("#clAddBtn").onclick=()=>{ addCl(); $("#clNew").focus(); };
+  $("#clNew").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCl(); } });
   function setType(t){ formType=t; document.querySelectorAll("[data-type]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.type===t)); $("#catpick").hidden = t!=="task"; }
   function setCat(c){ formCat=c; document.querySelectorAll("[data-cat]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cat===c)); }
   document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>setCat(b.dataset.cat));
@@ -800,6 +845,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     $("#fRemind").value=String(it?.remind??60);
     $("#fDone").checked=!!it?.done;
     $("#fNotes").value=it?.notes||"";
+    formCl=(it?.checklist||[]).map(c=>({...c})); $("#clNew").value=""; renderCl();
     $("#dlg").showModal(); setTimeout(()=>$("#fTitle").focus(),30);
   }
   function nextHalf(){ const n=new Date(); let m=n.getHours()*60+n.getMinutes(); m=Math.ceil((m+1)/30)*30; if(m>=1440) m=1410; return `${pad(Math.floor(m/60))}:${pad(m%60)}`; }
@@ -811,9 +857,10 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     const title=$("#fTitle").value.trim(); if(!title) return;
     const prev=editingId?items[editingId]:null;
     const start=fStart.value||null;
+    if($("#clNew").value.trim()) addCl();
     const data={ title, type:formType, category:formType==="task"?formCat:"", date:$("#fDate").value, start, duration:start?Number(fDur.value):null,
       location:$("#fLoc").value.trim(), notes:$("#fNotes").value.trim(), done:$("#fDone").checked,
-      remind:Number($("#fRemind").value), createdAt:prev?.createdAt||Date.now() };
+      remind:Number($("#fRemind").value), checklist:formCl.map(c=>({...c})), createdAt:prev?.createdAt||Date.now() };
     saveItem(editingId||newId(), data);
     $("#dlg").close();
   });
