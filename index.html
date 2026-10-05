@@ -449,7 +449,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     if(channel) sb.removeChannel(channel);
     channel = sb.channel("items-sync").on("postgres_changes",{event:"*",schema:"public",table:"items"},()=>load()).subscribe();
   }
-  document.addEventListener("visibilitychange",()=>{ if(!document.hidden && signedIn) load(); });
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden && signedIn){ load(); if(pushReady()) savePushSub().catch(()=>{}); } });
 
   let signedIn=false;
   function showLogin(on){ $("#login").hidden=!on; $("#outBtn").hidden=on; }
@@ -735,7 +735,8 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     const reg=await navigator.serviceWorker.ready;
     const sub=await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64ToBytes(VAPID_PUBLIC_KEY) });
     const { endpoint, keys } = sub.toJSON();
-    const { error } = await sb.from("push_subscriptions").upsert({ endpoint, p256dh:keys.p256dh, auth:keys.auth }, { onConflict:"endpoint" });
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // reminders follow where the phone is
+    const { error } = await sb.from("push_subscriptions").upsert({ endpoint, p256dh:keys.p256dh, auth:keys.auth, tz, updated_at:new Date().toISOString() }, { onConflict:"endpoint" });
     if(error) throw error;
   }
   function updateAlertBtn(){
