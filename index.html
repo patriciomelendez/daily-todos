@@ -445,6 +445,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   let channel=null;
   function startSync(){
     load();
+    if(pushReady()) savePushSub().catch(()=>{}); // keep the server's copy fresh
     if(channel) sb.removeChannel(channel);
     channel = sb.channel("items-sync").on("postgres_changes",{event:"*",schema:"public",table:"items"},()=>load()).subscribe();
   }
@@ -724,8 +725,19 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   });
 
   // ---------- reminders ----------
+  const VAPID_PUBLIC_KEY = "BLXI0uxmAOg8dRSNAeFSKHdrVh1zWaNULhpwiEPcgRgCWRHDRZGzdxUUcz4hnS9DBSYsuglph6ZZUnp91SqlnPA";
   let notified=store.get("dt:notified",{});
   const canNotify = () => "Notification" in window && Notification.permission==="granted";
+  const isInstalled = () => navigator.standalone===true || matchMedia("(display-mode: standalone)").matches;
+  const pushReady = () => isInstalled() && canNotify() && "PushManager" in window;
+  const b64ToBytes = s => { const b=atob((s+"=".repeat((4-s.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(b,c=>c.charCodeAt(0)); };
+  async function savePushSub(){
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64ToBytes(VAPID_PUBLIC_KEY) });
+    const { endpoint, keys } = sub.toJSON();
+    const { error } = await sb.from("push_subscriptions").upsert({ endpoint, p256dh:keys.p256dh, auth:keys.auth }, { onConflict:"endpoint" });
+    if(error) throw error;
+  }
   function updateAlertBtn(){
     const b=$("#alertBtn");
     const l=$("#alertLbl");
@@ -734,10 +746,13 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   }
   updateAlertBtn();
   $("#alertBtn").onclick=async()=>{
-    if(!("Notification" in window)){ toast("Reminders are on","They pop up here while this page is open."); return; }
+    if(!isInstalled()){ toast("Add to Home Screen first to get reminders.","Then open the app from its icon and tap 🔔 again."); return; }
+    if(!("Notification" in window) || !("PushManager" in window)){ toast("Reminders unavailable","This device doesn't support push notifications."); return; }
     try{ await Notification.requestPermission(); }catch{}
     updateAlertBtn();
-    toast(canNotify()?"Alerts on":"In-page alerts only", canNotify()?"You'll get a notification before each item.":"Your browser blocked notifications here, so reminders pop up on this page while it's open.");
+    if(!canNotify()){ toast("Notifications are off","Allow them in Settings → Notifications → To-dos."); return; }
+    try{ await savePushSub(); toast("Alerts on","You'll get a notification before each item, even with the app closed."); }
+    catch{ toast("Could not turn on alerts","Check your connection and try again."); }
   };
   let audioCtx;
   function chime(){ try{ audioCtx=audioCtx||new AudioContext(); const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value=880; g.gain.setValueAtTime(.0001,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.15,audioCtx.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+.6); o.start(); o.stop(audioCtx.currentTime+.6);}catch{} }
@@ -752,7 +767,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
         const mins=Math.round((t-now)/60000);
         const body=`${mins>=60?`In ${Math.round(mins/60*10)/10} h`:`In ${mins} min`} at ${fmtTime(it.start)}${it.location?" · "+it.location:""}`;
         toast(it.title, body, true); chime();
-        if(canNotify()){ try{ new Notification(it.title,{body,tag:key}); }catch{} }
+        if(canNotify() && !pushReady()){ try{ new Notification(it.title,{body,tag:key}); }catch{} }
       }
     });
     // prune old keys
