@@ -113,6 +113,8 @@ button{cursor:pointer}
 .ev.done b{text-decoration:line-through;color:var(--muted)}
 .ev.late,.chip.late{border-left-color:var(--now);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--now) 40%,transparent)}
 .late .ck{color:var(--now)}
+.ev{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ev.dragging{z-index:10;opacity:.92;transform:scale(1.03);box-shadow:0 12px 28px rgba(0,0,0,.35);transition:transform .12s}
 .ev b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev span{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 .chip{display:flex;align-items:center;gap:5px;cursor:pointer;border:0;text-align:left;font-size:12px;border-radius:6px;padding:3px 6px;background:var(--task-bg);border-left:3px solid var(--task);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
@@ -491,6 +493,8 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   function itemsOn(dateStr){ return list().filter(i=>i.date===dateStr); }
 
   function render(scrollNow){
+    if(drag){ renderPending=true; return; } // don't rebuild the grid under a finger
+    renderPending=false;
     Object.entries(items).forEach(([k,v])=>{ v.id=k; });
     document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.view===view));
     const el=$("#view");
@@ -519,7 +523,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   }
   (() => { let x0=null,y0=0; const p=$("#view");
     p.addEventListener("touchstart",e=>{ x0=e.touches[0].clientX; y0=e.touches[0].clientY; },{passive:true});
-    p.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0; x0=null;
+    p.addEventListener("touchend",e=>{ if(x0==null||drag){ x0=null; return; } const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0; x0=null;
       if(Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.5) shift(dx<0?1:-1); },{passive:true});
   })();
   let lastMobile=isMobile(); addEventListener("resize",()=>{ if(isMobile()!==lastMobile){ lastMobile=isMobile(); render(); } });
@@ -553,6 +557,7 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
     }));
     el.querySelectorAll("[data-anyday]").forEach(c=>c.addEventListener("click",e=>{ if(!e.target.closest(".chip")) openForm(null,{date:c.dataset.anyday,start:"",type:"task"}); }));
     bindOpen(el);
+    el.querySelectorAll(".ev").forEach(attachDrag);
   }
   function layout(its){
     its.sort((a,b)=>toMin(a.start)-toMin(b.start));
@@ -645,6 +650,95 @@ dialog::backdrop{background:rgba(15,21,34,.45)}
   }
   const strip = it => { const {id,...rest}=it; return rest; };
 
+
+  // ---------- drag to move (touch: press and hold, then drag) ----------
+  // Dropping on top of open to-dos pushes them later (events and done items stay put);
+  // anything pushed past 9pm goes to the first free gap from 9am the next day. Same rules as Siri.
+  let drag=null, renderPending=false, suppressClick=false;
+  const DAY_START=9*60, DAY_END=21*60;
+  const hhmm = t => `${pad(Math.floor(t/60))}:${pad(t%60)}`;
+  const span = i => [toMin(i.start), toMin(i.start)+(i.duration||30)];
+  const hits = (a,b) => a[0]<b[1] && b[0]<a[1];
+
+  function pushOthers(moved){
+    const day=list().filter(i=>i.id!==moved.id && i.date===moved.date && i.start);
+    const fresh=span(moved), pushers=[fresh], settled=[fresh,...day.filter(i=>i.type==="event"||i.done).map(span)];
+    const changes=[], overflow=[];
+    for(const it of day.filter(i=>i.type==="task"&&!i.done).sort((a,b)=>toMin(a.start)-toMin(b.start))){
+      const s=span(it), blockers=pushers.filter(p=>hits(p,s));
+      if(!blockers.length){ settled.push(s); continue; }
+      const len=s[1]-s[0]; let t=Math.max(...blockers.map(p=>p[1]));
+      for(let c; (c=settled.find(b=>hits(b,[t,t+len]))); ) t=c[1];
+      if(t+len>DAY_END){ overflow.push(it); continue; }
+      pushers.push([t,t+len]); settled.push([t,t+len]); changes.push({it,start:hhmm(t)});
+    }
+    return {changes,overflow};
+  }
+  function firstFree(fromDate,dur){
+    for(let d=0; d<30; d++){
+      const date=ymd(addDays(parseYmd(fromDate),d)); let t=DAY_START;
+      for(const [s,e] of list().filter(i=>i.date===date&&i.start).map(span).sort((a,b)=>a[0]-b[0])){ if(e<=t) continue; if(s>=t+dur) break; t=e; }
+      if(t+dur<=DAY_END) return {date,start:hhmm(t)};
+    }
+    return null;
+  }
+  function dropMove(id,date,start){
+    const it=items[id];
+    if(!it || (it.date===date && it.start===start)){ render(); return; }
+    const before={}, snap=x=>{ if(!before[x.id]) before[x.id]=strip(x); };
+    snap(it); it.date=date; it.start=start;
+    const {changes,overflow}=pushOthers(it);
+    changes.forEach(c=>{ snap(c.it); c.it.start=c.start; });
+    const next=ymd(addDays(parseYmd(date),1));
+    overflow.forEach(o=>{ const slot=firstFree(next,o.duration||30); if(slot){ snap(o); o.date=slot.date; o.start=slot.start; } });
+    Object.keys(before).forEach(k=>saveItem(k,strip(items[k])));
+    const others=Object.keys(before).length-1;
+    toast(`Moved to ${fmtTime(start)}`, others?`${others} other${others>1?"s":""} pushed later`:it.title, false,
+      ()=>Object.entries(before).forEach(([k,v])=>saveItem(k,v)));
+  }
+
+  function attachDrag(ev){
+    let timer=null, sx=0, sy=0;
+    const cancel=()=>{ clearTimeout(timer); timer=null; };
+    ev.addEventListener("touchstart",e=>{
+      if(e.touches.length!==1 || e.target.closest("[data-toggle]")) return;
+      sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+      timer=setTimeout(()=>{ timer=null; startDrag(ev,sx,sy); },450);
+    },{passive:true});
+    ev.addEventListener("touchmove",e=>{ if(timer && Math.hypot(e.touches[0].clientX-sx,e.touches[0].clientY-sy)>8) cancel(); },{passive:true});
+    ev.addEventListener("touchend",cancel,{passive:true});
+    ev.addEventListener("touchcancel",cancel,{passive:true});
+  }
+  function startDrag(ev,x,y){
+    const it=items[ev.dataset.open]; if(!it) return;
+    const r=ev.getBoundingClientRect();
+    drag={id:it.id, el:ev, col:ev.closest(".col"), offY:y-r.top, dur:it.duration||30, x, y, min:null};
+    ev.classList.add("dragging"); ev.style.left="2px"; ev.style.width="calc(100% - 4px)";
+    try{ navigator.vibrate?.(12); }catch{}
+    const tick=()=>{ if(!drag) return;
+      const sc=$("#view .grid-scroll"), b=sc.getBoundingClientRect();
+      if(drag.y<b.top+48) sc.scrollTop-=8; else if(drag.y>b.bottom-48) sc.scrollTop+=8;
+      moveDrag(); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+  function moveDrag(){
+    const col=[...$("#view").querySelectorAll(".col")].find(c=>{ const r=c.getBoundingClientRect(); return drag.x>=r.left&&drag.x<r.right; })||drag.col;
+    if(col!==drag.col){ col.appendChild(drag.el); drag.col=col; }
+    const r=col.getBoundingClientRect();
+    const m=Math.max(0,Math.min(1440-15, Math.round((drag.y-drag.offY-r.top)/slotPx()*2)*15));
+    if(m===drag.min) return;
+    drag.min=m; drag.el.style.top=`calc(var(--slot)*${m/30} + 1px)`;
+    const lbl=drag.el.querySelector(".evt span"); if(lbl) lbl.textContent=fmtTime(hhmm(m));
+  }
+  document.addEventListener("touchmove",e=>{ if(!drag) return; e.preventDefault(); drag.x=e.touches[0].clientX; drag.y=e.touches[0].clientY; moveDrag(); },{passive:false});
+  const endDrag=()=>{ if(!drag) return;
+    const {id,col,min}=drag; drag=null;
+    suppressClick=true; setTimeout(()=>{ suppressClick=false; },400);
+    if(min==null) render(); else dropMove(id,col.dataset.day,hhmm(min));
+  };
+  document.addEventListener("touchend",endDrag);
+  document.addEventListener("touchcancel",endDrag);
+  document.addEventListener("click",e=>{ if(suppressClick && e.target.closest("#view")){ e.stopPropagation(); e.preventDefault(); } },true);
 
   // ---------- Next up ----------
   function progress(){
