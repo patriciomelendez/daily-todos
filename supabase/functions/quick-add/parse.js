@@ -61,6 +61,35 @@ export function parseItem(chrono, input, kind, tz, now = new Date()) {
   };
 }
 
+const toMin = (s) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+const toHHMM = (t) => `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+
+// New item claims its time; open to-dos in the way slide later (domino), events and done items stay.
+// dayItems: [{id, type, done, start, duration}] on the new item's date. Returns [{id, start}] for
+// moves that fit before 9pm and `overflow` ids that need a slot on a later day.
+export function pushForward(dayItems, newStart, newDur) {
+  const span = (start, dur) => [start, start + (dur || 30)];
+  const hits = (a, b) => a[0] < b[1] && b[0] < a[1];
+  const fresh = span(toMin(newStart), newDur);
+  const fixed = dayItems.filter((i) => i.type === "event" || i.done).map((i) => span(toMin(i.start), i.duration));
+  const queue = dayItems.filter((i) => i.type === "task" && !i.done)
+    .map((i) => ({ ...i, s: span(toMin(i.start), i.duration) })).sort((a, b) => a.s[0] - b.s[0]);
+
+  const pushers = [fresh], settled = [fresh, ...fixed], moves = [], overflow = [];
+  for (const it of queue) {
+    const blockers = pushers.filter((p) => hits(p, it.s));
+    if (!blockers.length) { settled.push(it.s); continue; }
+    const len = it.s[1] - it.s[0];
+    let t = Math.max(...blockers.map((p) => p[1]));
+    for (let clash; (clash = settled.find((b) => hits(b, [t, t + len]))); ) t = clash[1];
+    if (t + len > DAY_END) { overflow.push(it.id); continue; }
+    const s = [t, t + len];
+    pushers.push(s); settled.push(s);
+    moves.push({ id: it.id, start: toHHMM(t) });
+  }
+  return { moves, overflow };
+}
+
 // First free gap of `dur` minutes, searching from `fromDate` between 9am and 9pm.
 // busy: [{date, start:"HH:MM", duration}], now: {date:"YYYY-MM-DD", min: minutes since midnight}.
 export const DAY_START = 9 * 60, DAY_END = 21 * 60;
