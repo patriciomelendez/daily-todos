@@ -13,12 +13,33 @@ function parseDuration(text) {
   return { minutes, text: text.replace(m[0], " ") };
 }
 
+// Siri dictation writes times in words ("four PM", "a las cuatro"); chrono only reads digits.
+const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12 };
+const NUM_RE = Object.keys(NUM).join("|");
+const MIN_WORDS = { fifteen: 15, thirty: 30, "forty five": 45, "forty-five": 45, quince: 15, treinta: 30, "y cuarto": 15, "y media": 30 };
+const MIN_RE = Object.keys(MIN_WORDS).join("|");
+
+function timeWordsToDigits(text) {
+  const timeish = new RegExp(`\\b(${NUM_RE})(?:\\s+(${MIN_RE}))?(?=\\s*(?:[ap]m\\b|o'?\\s?clock|in the (?:morning|afternoon|evening)|de la (?:mañana|tarde|noche)|hrs?\\b))`, "gi");
+  const afterAt = new RegExp(`\\b(at|a las|a la)\\s+(${NUM_RE})(?:\\s+(${MIN_RE}))?\\b`, "gi");
+  const hm = (h, m) => `${NUM[h.toLowerCase()]}${m ? ":" + String(MIN_WORDS[m.toLowerCase()]).padStart(2, "0") : ""}`;
+  return text
+    .replace(afterAt, (_, at, h, m) => `${at} ${hm(h, m)}`)
+    .replace(timeish, (_, h, m) => hm(h, m))
+    .replace(/\b(\d{1,2}(?::\d{2})?)\s*o'?\s?clock\b/gi, "$1")
+    .replace(/\b(\d{1,2})(?::(\d{2}))?\s+in the (afternoon|evening|morning)\b/gi, (_, h, m, p) =>
+      `${h}${m ? ":" + m : ""}${p === "morning" ? "am" : "pm"}`);
+}
+
 export function parseItem(chrono, input, kind, tz, now = new Date()) {
-  let text = ` ${input.trim().replace(/\b([ap])\.\s?m\.?/gi, "$1m").replace(/[.!]+$/, "")} `
+  let text = timeWordsToDigits(` ${input.trim().replace(/\b([ap])\.\s?m\.?/gi, "$1m").replace(/[.!]+$/, "")} `)
     // "3 de la tarde" → "15:00", "9 de la mañana" → "9:00" (chrono's Spanish misses these)
     .replace(/\b(\d{1,2})(?::(\d{2}))?\s+de la (tarde|noche|mañana)\b/gi, (_, h, m, p) =>
       `${/mañana/i.test(p) || +h === 12 ? +h : +h + 12}:${m || "00"}`);
-  const ref = { instant: now, timezone: tz };
+  // chrono resolves "tomorrow" with the machine's clock (UTC on the server), so hand it a Date whose
+  // machine-local fields are the phone's wall-clock time; we only read the parsed fields back.
+  const ref = new Date(now.toLocaleString("en-US", { timeZone: tz }));
 
   // Date/time: parse as English and Spanish, keep whichever understood the longest phrase.
   const hit = [chrono.en ?? chrono, chrono.es]
@@ -28,7 +49,12 @@ export function parseItem(chrono, input, kind, tz, now = new Date()) {
   if (hit) {
     const s = hit.start;
     date = `${s.get("year")}-${pad(s.get("month"))}-${pad(s.get("day"))}`;
-    if (s.isCertain("hour")) start = `${pad(s.get("hour"))}:${pad(s.get("minute") ?? 0)}`;
+    if (s.isCertain("hour")) {
+      // "at 4" with no am/pm: nobody schedules chores at 4am, so 1–7 means afternoon/evening.
+      let h = s.get("hour");
+      if (!s.isCertain("meridiem") && h >= 1 && h <= 7) h += 12;
+      start = `${pad(h)}:${pad(s.get("minute") ?? 0)}`;
+    }
     // Drop the date phrase plus a dangling "on"/"el"/"at" right before it.
     const before = text.slice(0, hit.index).replace(/\s(?:on|el|at|this|este|para)\s*$/i, " ");
     text = before + " " + text.slice(hit.index + hit.text.length);

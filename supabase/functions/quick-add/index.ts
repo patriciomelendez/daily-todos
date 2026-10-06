@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
   const text = (body.text ?? "").trim();
   const kind = ["home", "work", "event"].includes(body.kind ?? "") ? body.kind! : "home";
   if (!text) return say("I didn't hear a to-do.", 400);
+  console.log("quick-add", JSON.stringify({ text, kind })); // raw dictation, for debugging misparses
 
   // Same time zone the phone last reported for reminders.
   const { data: sub } = await sb.from("push_subscriptions").select("tz").eq("user_id", OWNER_ID)
